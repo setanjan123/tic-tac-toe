@@ -20,7 +20,7 @@ if(initialized==0) {
 }
 client.on('move',(value)=>{
     console.log(value);
-    if(parseInt(value.answer)<1||parseInt(value.answer)>9||boardArray[value.answer-1]!='.') {
+    if(parseInt(value.answer)<1||parseInt(value.answer)>9||boardArray[value.answer-1]!='.') { //checking for invalid input
            if(value.playerId==1) {
               io.to(player1).emit('invalid input',boardArray);
            } else {
@@ -47,12 +47,11 @@ client.on('quit',(playerId)=>{
         io.to(player1).emit('game over','Game won by first player as second player forfeit the game'); 
         io.to(player2).emit('game over','Game won by first player as second player forfeit the game'); 
     } 
-    initialized=0;
-    boardArray = ['.','.','.','.','.','.','.','.','.'];
+    resetGameState();
 })
 });
 
-function gameEngine() {
+function gameEngine() {  //main function that checks for the win/tie condition
        let winningSymbol;
        if((boardArray[0]==boardArray[1])&&(boardArray[1]==boardArray[2])&&(boardArray[0]!='.')) {
             winningSymbol=boardArray[0];
@@ -74,8 +73,7 @@ function gameEngine() {
             if(!boardArray.includes('.')) {
                 io.to(player1).emit('game over','Game is tied');
                 io.to(player2).emit('game over','Game is tied');
-                initialized=0;
-                boardArray = ['.','.','.','.','.','.','.','.','.'];
+                resetGameState();
                 return true;
             } else {
                  return false;
@@ -84,16 +82,19 @@ function gameEngine() {
        if(winningSymbol=='X') {
         io.to(player1).emit('game over','Game won by first player');
         io.to(player2).emit('game over','Game won by first player');
-        initialized=0;
-        boardArray = ['.','.','.','.','.','.','.','.','.'];
+        resetGameState();
         return true;
       } else if(winningSymbol=='O') {
         io.to(player1).emit('game over','Game won by second player');
         io.to(player2).emit('game over','Game won by second player');
-        initialized=0;
-        boardArray = ['.','.','.','.','.','.','.','.','.'];
+        resetGameState();
         return true;
       } 
+}
+
+function resetGameState() {  //resetting the state of the game after its over
+    initialized=0;
+    boardArray = ['.','.','.','.','.','.','.','.','.']; 
 }
 
 server.listen(PORT,()=>{

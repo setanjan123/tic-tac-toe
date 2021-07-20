@@ -12,7 +12,7 @@ var rl = readline.createInterface({
 
 var waitForUserInput = function() {
     rl.question("Please enter your move: ", function(answer) {
-       if (answer == "r"){
+       if (answer == "r"){ // if player resigns/forfeits
            rl.close();
            socket.emit('quit',playerId);
        } else {
@@ -63,5 +63,4 @@ socket.on('invalid input',function(boardArray){
 socket.on('game over',function(message){
     console.log(message);
     socket.close();
-    return;
 });
