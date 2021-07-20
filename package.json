@@ -1,0 +1,15 @@
+{
+  "name": "tic-tac-toe",
+  "version": "1.0.0",
+  "description": "A small tic-tac-to game that can be played between two command line clients",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "author": "Setanjan Roy",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io": "^4.1.3",
+    "socket.io-client": "^4.1.3"
+  }
+}
