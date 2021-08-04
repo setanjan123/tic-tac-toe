@@ -1,5 +1,4 @@
 # tic-tac-toe
-Node.js assignment for Solulabs
 
 This is a command line based tic-tac toe that can be played between two command line based clients. It uses sockets for communication.
 
