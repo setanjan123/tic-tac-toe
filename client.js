@@ -11,7 +11,7 @@ var rl = readline.createInterface({
 });
 
 var waitForUserInput = function() {
-    rl.question("Please enter your move: ", function(answer) {
+    rl.question("Please enter your moves: ", function(answer) {
        if (answer == "r"){ // if player resigns/forfeits
            rl.close();
            socket.emit('quit',playerId);
