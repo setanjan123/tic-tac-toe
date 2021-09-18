@@ -4,6 +4,7 @@ var io = require('socket.io-client');
 var socket = io.connect('http://'+serverIP+':'+PORT, {reconnect: true});
 const readline = require('readline');
 var playerId;
+var matchHash;
 
 var rl = readline.createInterface({
     input: process.stdin,
@@ -14,9 +15,9 @@ var waitForUserInput = function() {
     rl.question("Please enter your move: ", function(answer) {
        if (answer == "r"){ // if player resigns/forfeits
            rl.close();
-           socket.emit('quit',playerId);
+           socket.emit('quit',{playerId:playerId,hash:matchHash});
        } else {
-           socket.emit('move',{answer:answer,playerId:playerId});
+           socket.emit('move',{answer:answer,playerId:playerId,hash:matchHash});
        }
      });
 }
@@ -26,8 +27,10 @@ socket.on('connect', function () {
 });
 
 socket.on('game start', function (value) {
-    playerId = value=='first'?1:2;
-    console.log('Game started. You are the '+value+' player.');
+    playerId = value.playerId=='first'?1:2;
+    matchHash = value.hash;
+    console.log(matchHash)
+    console.log('Game started. You are the '+value.playerId+' player.');
     console.log('...');
     console.log('...');
     console.log('...');
@@ -60,7 +63,12 @@ socket.on('invalid input',function(boardArray){
     waitForUserInput();
 });
 
-socket.on('game over',function(message){
-    console.log(message);
+socket.on('waiting',function(value){
+    console.log(value);
+});
+
+socket.on('game over',function(value){
+    console.log(value.message);
+    console.log(value.boardArray)
     socket.close();
 });

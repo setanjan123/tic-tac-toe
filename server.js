@@ -1,25 +1,80 @@
-const PORT = process.argv[2];
+const PORT = process.env.PORT || 3000;
 const server = require('http').createServer();
-const io = require('socket.io')(server);
-var boardArray = ['.','.','.','.','.','.','.','.','.'];
-var player1,player2;
-var initialized=0;
+const io = require('socket.io')(server); 
+const redis = require('redis');
+require('dotenv').config()
+const redisClient = redis.createClient({
+    host: process.env.REDIS_HOSTNAME,
+    port: process.env.REDIS_PORT,
+    password: process.env.REDIS_PASSWORD
+});
+const cryptoRandomString = require('crypto-random-string')
 
-io.on('connection', client => {
-if(initialized==0) {
-    client.join('room');
-    let clients = io.sockets.adapter.rooms.get('room');
-    if(clients.size==2) {
-        let it = clients.values();
-        player1 = it.next().value;
-        player2 = it.next().value;
-        io.to(player1).emit('game start','first');
-        io.to(player2).emit('game start','second');
-        initialized=1;
-    }
+redisClient.on("error", (error) => {
+    console.error(error);
+});
+
+redisClient.on("connect", () => {
+    console.log("Connected to our redis instance!");
+});
+
+const { promisify } = require("util");
+const getAsync = promisify(redisClient.get).bind(redisClient);
+const setAsync = promisify(redisClient.set).bind(redisClient);
+const delAsync = promisify(redisClient.del).bind(redisClient);
+
+
+function getRandomString (howMany) {
+    howMany = howMany || 10;
+    let randomString = cryptoRandomString({ length: howMany, type: 'alphanumeric' });
+    return randomString;
+  };
+
+
+io.on('connection', async client => {
+let pool = await getAsync('matchmaking-pool');
+if(pool==null) pool = []; 
+else pool = JSON.parse(pool);
+if(pool.length==0) {
+       const roomHash = getRandomString();
+       console.log(roomHash);
+       const newMatch = {
+             roomHash: roomHash
+       }
+       pool.push(newMatch);
+       await setAsync('matchmaking-pool',JSON.stringify(pool));
+       client.join(roomHash);
+       let clients = io.sockets.adapter.rooms.get(roomHash);
+       let it = clients.values();
+       const player1 = it.next().value;
+       io.to(player1).emit('waiting','waiting for player 2');
+} else {
+     console.log(pool);
+     const match = pool.shift();
+     await setAsync('matchmaking-pool',JSON.stringify(pool));
+     console.log(match.roomHash);
+     client.join(match.roomHash);
+     let clients = io.sockets.adapter.rooms.get(match.roomHash);
+     let it = clients.values();
+     const player1 = it.next().value;
+     const player2 = it.next().value;
+     const activeMatch = {
+        boardArray : ['.','.','.','.','.','.','.','.','.'],
+        player1: player1,
+        player2: player2
+     }
+     await setAsync(match.roomHash,JSON.stringify(activeMatch))
+     io.to(player1).emit('game start',{playerId:'first',hash:match.roomHash});
+     io.to(player2).emit('game start',{playerId:'second',hash:match.roomHash});
 }
-client.on('move',(value)=>{
-    console.log(value);
+
+client.on('move',async (value)=>{
+    let matchDetails = await getAsync(value.hash);
+    matchDetails = JSON.parse(matchDetails);
+    console.log(matchDetails);
+    const player1 = matchDetails.player1;
+    const player2 = matchDetails.player2;
+    const boardArray = matchDetails.boardArray;
     if(parseInt(value.answer)<1||parseInt(value.answer)>9||boardArray[value.answer-1]!='.') { //checking for invalid input
            if(value.playerId==1) {
               io.to(player1).emit('invalid input',boardArray);
@@ -28,7 +83,10 @@ client.on('move',(value)=>{
            }
     } else {
         boardArray[value.answer-1] = value.playerId==1?'X':'O';
-        if(!gameEngine()) {
+        matchDetails.boardArray = boardArray;
+        await setAsync(value.hash,JSON.stringify(matchDetails));
+        const result = gameEngine(boardArray);
+        if(result==0) {
             if(value.playerId==1) {
                 io.to(player2).emit('your turn',boardArray);
                 io.to(player1).emit('other turn',boardArray);
@@ -36,22 +94,38 @@ client.on('move',(value)=>{
               io.to(player1).emit('your turn',boardArray);
               io.to(player2).emit('other turn',boardArray);
           }
+        } else if(result==3) {
+                io.to(player1).emit('game over',{message:'Game is tied',boardArray:boardArray});
+                io.to(player2).emit('game over',{message:'Game is tied',boardArray:boardArray});
+                await delAsync(value.hash); 
+        } else if(result==1) {
+            io.to(player1).emit('game over',{message:'You Win!',boardArray:boardArray});
+            io.to(player2).emit('game over',{message:'You Lose!',boardArray:boardArray});
+            await delAsync(value.hash); 
+        } else if(result==2) {
+            io.to(player1).emit('game over',{message:'You Lose!',boardArray:boardArray});
+            io.to(player2).emit('game over',{message:'You Win!',boardArray:boardArray});
+            await delAsync(value.hash);   
         }
     }
 })
-client.on('quit',(playerId)=>{
-    if(playerId==1) {
-        io.to(player1).emit('game over','Game won by second player as first player forfeit the game');
-        io.to(player2).emit('game over','Game won by second player as first player forfeit the game');
+client.on('quit',async (value)=>{
+    let matchDetails = await getAsync(value.hash);
+    matchDetails = JSON.parse(matchDetails);
+    const player1 = matchDetails.player1;
+    const player2 = matchDetails.player2;
+    if(value.playerId==1) {
+        io.to(player1).emit('game over',{message:'Game won by second player as first player forfeit the game'});
+        io.to(player2).emit('game over',{message:'Game won by second player as first player forfeit the game'});
     } else {
-        io.to(player1).emit('game over','Game won by first player as second player forfeit the game'); 
-        io.to(player2).emit('game over','Game won by first player as second player forfeit the game'); 
+        io.to(player1).emit('game over',{message:'Game won by first player as second player forfeit the game'}); 
+        io.to(player2).emit('game over',{message:'Game won by first player as second player forfeit the game'}); 
     } 
-    resetGameState();
+    await delAsync(value.hash);
 })
 });
 
-function gameEngine() {  //main function that checks for the win/tie condition
+function gameEngine(boardArray) {  //main function that checks for the win/tie condition
        let winningSymbol;
        if((boardArray[0]==boardArray[1])&&(boardArray[1]==boardArray[2])&&(boardArray[0]!='.')) {
             winningSymbol=boardArray[0];
@@ -71,30 +145,16 @@ function gameEngine() {  //main function that checks for the win/tie condition
            winningSymbol=boardArray[2];
        } else {
             if(!boardArray.includes('.')) {
-                io.to(player1).emit('game over','Game is tied');
-                io.to(player2).emit('game over','Game is tied');
-                resetGameState();
-                return true;
+                return 3;
             } else {
-                 return false;
+                 return 0;
             }
        }
        if(winningSymbol=='X') {
-        io.to(player1).emit('game over','Game won by first player');
-        io.to(player2).emit('game over','Game won by first player');
-        resetGameState();
-        return true;
+        return 1;
       } else if(winningSymbol=='O') {
-        io.to(player1).emit('game over','Game won by second player');
-        io.to(player2).emit('game over','Game won by second player');
-        resetGameState();
-        return true;
+        return 2;
       } 
-}
-
-function resetGameState() {  //resetting the state of the game after its over
-    initialized=0;
-    boardArray = ['.','.','.','.','.','.','.','.','.']; 
 }
 
 server.listen(PORT,()=>{
