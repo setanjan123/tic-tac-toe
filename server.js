@@ -20,9 +20,6 @@ redisClient.on("connect", () => {
     console.log("Connected to our redis instance!");
 });
 
-
-redisClient.flushall();
-
 const { promisify } = require("util");
 const getAsync = promisify(redisClient.get).bind(redisClient);
 const setAsync = promisify(redisClient.set).bind(redisClient);
