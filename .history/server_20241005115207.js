@@ -7,7 +7,8 @@ const redis = require('redis');
 require('dotenv').config()
 const redisClient = redis.createClient({
     host: process.env.REDIS_HOSTNAME,
-    port: process.env.REDIS_PORT
+    port: process.env.REDIS_PORT,
+    //password: process.env.REDIS_PASSWORD
 });
 const cryptoRandomString = require('crypto-random-string')
 
