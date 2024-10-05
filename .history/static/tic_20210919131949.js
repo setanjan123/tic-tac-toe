@@ -36,7 +36,7 @@ const addPlayerMove = e => {
 
 const quit = () => {
   socket.emit('quit',{playerId:playerId,hash:matchHash});
-  window.location.href = '/play/index.html';
+  window.location.href = '/index.html';
 };
 
 
@@ -84,7 +84,7 @@ socket.on('game win',function(value){
     render_board();
     socket.close();
     setTimeout(()=>{
-      window.location.href = '/play/index.html';
+      window.location.href = '/index.html';
     },3000)
 });
 
@@ -96,7 +96,7 @@ socket.on('game lose',function(value){
   render_board();
   socket.close();
   setTimeout(()=>{
-    window.location.href = '/play/index.html';
+    window.location.href = '/index.html';
   },3000)
 });
 
@@ -107,7 +107,7 @@ socket.on('game tied',function(value){
   render_board();
   socket.close();
   setTimeout(()=>{
-    window.location.href = '/play/index.html';
+    window.location.href = '/index.html';
   },3000)
 });
 
@@ -116,6 +116,6 @@ socket.on('game over',function(value){
   winner.classList.add("draw");
   socket.close();
   setTimeout(()=>{
-    window.location.href = '/play/index.html';
+    window.location.href = '/index.html';
   },3000)
 });

@@ -16,10 +16,13 @@
 
         </div>
         <h2 id="winner"></h2>
-        <button id='reset' onclick="quit()">QUIT GAME</button>
+        <button id='start' onclick="start()">START GAME</button>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.min.js"></script>
-    <script src="/play/tic.js"></script>
+    <script>
+         const start = ()=> {
+            window.location.href='/game.html';
+         }
+    </script>
 </body>
 
 </html>
